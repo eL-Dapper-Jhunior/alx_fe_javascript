@@ -32,6 +32,7 @@ async function fetchQuotesFromServer() {
             serverId: quote.id,
             lastModified: new Date().toISOString()
         }));
+        
         quotes = formattedQuotes; // Assume we replace local quotes
         saveQuotesToLocalStorage();
         updateUI();
@@ -51,7 +52,7 @@ async function syncQuotes() {
         saveQuotesToLocalStorage();
         updateUI();
 
-        showNotification('Sync successful.');
+        showNotification('Quotes synced with server!'); // Notification for successful sync
     } catch (error) {
         console.error('Error during syncing:', error);
         showNotification('Sync failed. Please try again later.');
@@ -100,6 +101,7 @@ async function handleConflictResolution(conflicts) {
                 serverId: conflict.server.id,
                 lastModified: new Date().toISOString()
             };
+            showNotification(`Conflict resolved: Server data kept for quote "${conflict.server.body}"`);
         }
     }
 }
