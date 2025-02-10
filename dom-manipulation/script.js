@@ -244,3 +244,141 @@ function createImportInput() {
     importInput.addEventListener('change', importFromJsonFile);
     document.body.appendChild(importInput);
 }
+
+
+
+
+
+// Server Simulation Configuration
+const SERVER_SYNC_INTERVAL = 30000; // 30 seconds
+const SERVER_URL = 'https://jsonplaceholder.typicode.com/posts'; // Mock API endpoint
+
+// Function to generate a unique identifier for quotes
+function generateQuoteId() {
+    return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+}
+
+// Add an ID to existing quotes if not present
+quotes = quotes.map(quote => ({
+    ...quote,
+    id: quote.id || generateQuoteId()
+}));
+
+// Function to sync quotes with server
+async function syncQuotesWithServer() {
+    try {
+        // Fetch quotes from server
+        const response = await fetch(SERVER_URL);
+        const serverQuotes = await response.json();
+
+        // Transform server quotes to match our quote structure
+        const fetchedQuotes = serverQuotes.map(post => ({
+            id: post.id.toString(),
+            text: post.title,
+            category: 'Imported'
+        }));
+
+        // Merge local and server quotes
+        const mergedQuotes = mergeQuotes(quotes, fetchedQuotes);
+
+        // Update local quotes
+        quotes = mergedQuotes;
+        saveQuotes();
+        
+        // Update UI
+        populateCategories();
+        filterQuotes();
+
+        // Notify user about sync
+        showSyncNotification('Quotes synchronized successfully');
+    } catch (error) {
+        console.error('Sync failed:', error);
+        showSyncNotification('Sync failed. Please check your connection.', 'error');
+    }
+}
+
+// Merge quotes with conflict resolution
+function mergeQuotes(localQuotes, serverQuotes) {
+    const mergedQuotes = [...localQuotes];
+    
+    serverQuotes.forEach(serverQuote => {
+        const existingQuoteIndex = mergedQuotes.findIndex(q => q.id === serverQuote.id);
+        
+        if (existingQuoteIndex === -1) {
+            // New quote from server, add it
+            mergedQuotes.push(serverQuote);
+        } else {
+            // Existing quote, use server version if different
+            if (JSON.stringify(mergedQuotes[existingQuoteIndex]) !== JSON.stringify(serverQuote)) {
+                mergedQuotes[existingQuoteIndex] = serverQuote;
+            }
+        }
+    });
+
+    return mergedQuotes;
+}
+
+// Function to show sync notifications
+function showSyncNotification(message, type = 'success') {
+    const notificationContainer = document.createElement('div');
+    notificationContainer.classList.add('sync-notification', `notification-${type}`);
+    notificationContainer.textContent = message;
+    
+    document.body.appendChild(notificationContainer);
+    
+    // Remove notification after 3 seconds
+    setTimeout(() => {
+        document.body.removeChild(notificationContainer);
+    }, 3000);
+}
+
+// Function to manually trigger sync
+function manualSync() {
+    syncQuotesWithServer();
+}
+
+// Add periodic sync when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Add manual sync button
+    const manualSyncButton = document.createElement('button');
+    manualSyncButton.textContent = 'Manual Sync';
+    manualSyncButton.addEventListener('click', manualSync);
+    document.body.appendChild(manualSyncButton);
+
+    // Start periodic sync
+    setInterval(syncQuotesWithServer, SERVER_SYNC_INTERVAL);
+});
+
+// Modify addQuote function to include ID
+function addQuote() {
+    const quoteText = document.getElementById('newQuoteText').value.trim();
+    const quoteCategory = document.getElementById('newQuoteCategory').value.trim();
+
+    if (!quoteText || !quoteCategory) {
+        alert('Please enter both a quote and a category');
+        return;
+    }
+
+    const newQuote = {
+        id: generateQuoteId(),
+        text: quoteText,
+        category: quoteCategory
+    };
+
+    quotes.push(newQuote);
+
+    // Save quotes to local storage
+    saveQuotes();
+
+    // Update the category dropdown if the category is new
+    const categories = [...new Set(quotes.map(quote => quote.category))];
+    if (!categories.includes(quoteCategory)) {
+        populateCategories();
+    }
+
+    document.getElementById('newQuoteText').value = '';
+    document.getElementById('newQuoteCategory').value = '';
+    updateCategoryDisplay(document.getElementById('categoryDisplay'));
+    filterQuotes(); // Apply the current filter
+}
+
